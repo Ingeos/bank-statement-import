@@ -83,14 +83,6 @@ class CamtParser(models.AbstractModel):
         if party_node:
             self.add_value_from_node(
                 ns, party_node[0], './ns:Nm', transaction, 'partner_name')
-            self.add_value_from_node(
-                ns, party_node[0], './ns:PstlAdr/ns:Ctry', transaction,
-                'partner_country'
-            )
-            address_node = party_node[0].xpath(
-                './ns:PstlAdr/ns:AdrLine', namespaces={'ns': ns})
-            if address_node:
-                transaction['partner_address'] = [address_node[0].text]
         # Get remote_account from iban or from domestic account:
         account_node = node.xpath(
             './ns:RltdPties/ns:%sAcct/ns:Id' % party_type,
@@ -101,32 +93,17 @@ class CamtParser(models.AbstractModel):
                 './ns:IBAN', namespaces={'ns': ns})
             if iban_node:
                 transaction['account_number'] = iban_node[0].text
-                bic_node = node.xpath(
-                    './ns:RltdAgts/ns:%sAgt/ns:FinInstnId/ns:BIC' % party_type,
-                    namespaces={'ns': ns}
-                )
-                if bic_node:
-                    transaction['account_bic'] = bic_node[0].text
             else:
                 self.add_value_from_node(
                     ns, account_node[0], './ns:Othr/ns:Id', transaction,
                     'account_number'
                 )
-        transaction['data'] = etree.tostring(node)
 
     def parse_entry(self, ns, node):
         """Parse an Ntry node and yield transactions"""
         transaction = {'name': '/', 'amount': 0}  # fallback defaults
         self.add_value_from_node(
-            ns, node, './ns:BkTxCd/ns:Prtry/ns:Cd', transaction,
-            'transfer_type'
-        )
-        self.add_value_from_node(
             ns, node, './ns:BookgDt/ns:Dt', transaction, 'date')
-        self.add_value_from_node(
-            ns, node, './ns:BookgDt/ns:Dt', transaction, 'execution_date')
-        self.add_value_from_node(
-            ns, node, './ns:ValDt/ns:Dt', transaction, 'value_date')
         amount = self.parse_amount(ns, node)
         if amount != 0.0:
             transaction['amount'] = amount
@@ -197,8 +174,6 @@ class CamtParser(models.AbstractModel):
         self.add_value_from_node(
             ns, node, './ns:Id', result, 'name')
         self.add_value_from_node(
-            ns, node, './ns:Dt', result, 'date')
-        self.add_value_from_node(
             ns, node, './ns:Acct/ns:Ccy', result, 'currency')
         result['balance_start'], result['balance_end_real'] = (
             self.get_balance_amounts(ns, node))
@@ -222,22 +197,24 @@ class CamtParser(models.AbstractModel):
         )
         if not re_camt.search(ns):
             raise ValueError('no camt: ' + ns)
-        # Check wether version 052 or 053:
+        # Check wether version 052 ,053 or 054:
         re_camt_version = re.compile(
-            r'(^urn:iso:std:iso:20022:tech:xsd:camt.053.'
+            r'(^urn:iso:std:iso:20022:tech:xsd:camt.054.'
+            r'|^urn:iso:std:iso:20022:tech:xsd:camt.053.'
             r'|^urn:iso:std:iso:20022:tech:xsd:camt.052.'
+            r'|^ISO:camt.054.'
             r'|^ISO:camt.053.'
             r'|^ISO:camt.052.)'
         )
         if not re_camt_version.search(ns):
-            raise ValueError('no camt 052 or 053: ' + ns)
+            raise ValueError('no camt 052 or 053 or 054: ' + ns)
         # Check GrpHdr element:
         root_0_0 = root[0][0].tag[len(ns) + 2:]  # strip namespace
         if root_0_0 != 'GrpHdr':
             raise ValueError('expected GrpHdr, got: ' + root_0_0)
 
     def parse(self, data):
-        """Parse a camt.052 or camt.053 file."""
+        """Parse a camt.052 or camt.053 or camt.054 file."""
         try:
             root = etree.fromstring(
                 data, parser=etree.XMLParser(recover=True))
