@@ -12,6 +12,9 @@ setuptools.setup(
         'odoo14-addon-account_statement_import_camt',
         'odoo14-addon-account_statement_import_camt54',
         'odoo14-addon-account_statement_import_ofx',
+        'odoo14-addon-account_statement_import_online',
+        'odoo14-addon-account_statement_import_online_ponto',
+        'odoo14-addon-account_statement_import_paypal',
     ],
     classifiers=[
         'Programming Language :: Python',
